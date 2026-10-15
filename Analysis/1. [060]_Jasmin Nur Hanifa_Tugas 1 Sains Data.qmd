@@ -1,0 +1,247 @@
+---
+title: "Tugas Praktikum 1"
+author: "Jasmin Nur Hanifa - M0501241060"
+format: 
+  html:
+    embeded_resources: true #menampilkan grafik/gambar dan eq
+    toc: true #opsional
+editor: visual
+---
+
+# Tugas Mandiri
+
+## Import library yang dibutuhkan
+
+```{r}
+library(tidyverse)
+```
+
+## Import Dataset
+
+```{r}
+data <- read_csv("world-data-2023.csv",show_col_types = FALSE)
+head(data)
+```
+
+```{r}
+glimpse(data)
+```
+
+## 1. Menampilkan 10 Negara yang memiliki `Armed Forces Size` terbesar di dunia
+
+(hanya menampilkan 10 data dan 2 kolom saja)
+
+```{r}
+data %>%
+  select(Country, `Armed Forces size`)%>%
+  slice_max(`Armed Forces size`, n = 10)
+```
+
+Berdasarkan output yang diberikan, terlihat 10 negara dengan tentara angkatan udara terbesar di dunia dengan peringkat pertama diperoleh India sebanyak 3031000 dengan peringkat 10 diperoleh Korea Selatan sebanyak 634000
+
+## 2. Negara dengan `Fertility Rate` \< Indonesia
+
+Diurutkan dari yang terbesar ke terkecil berdasarkan `Fertility Rate` dengan berisikan 2 kolom saja
+
+```{r}
+data %>%
+  select(Country, `Fertility Rate`) %>%
+  filter(`Fertility Rate` < `Fertility Rate`[Country == "Indonesia"]) %>%
+  arrange(desc(`Fertility Rate`))
+```
+
+Dengan menggunakan filter, memperoleh informasi negara-negara yang memiliki tingkat `fertility` yang lebih kecil dibandingkan Indonesia. Sintaks di atas memanfaatkan pengambilan data pada baris tertentu dengan syarat `Country == "Indonesia"`
+
+## 3. Menghitung statistik 5 serangkai dari kolom `Armed Forces size` dan `Fertility Rate`
+
+Menampilkannya dalam format long data.
+
+```{r}
+data %>%
+  summarize(across(where(is.numeric),list(
+    minimum = ~min(.x, na.rm = TRUE),
+    maximum = ~max(.x, na.rm = TRUE),
+    mean = ~mean(.x, na.rm = TRUE),
+    median =~median(.x, na.rm = TRUE),
+    q1 = ~quantile(.x, probs = .25, na.rm = TRUE),
+    q3 = ~quantile(.x, probs = .75, na.rm = TRUE)
+  ) )) %>% 
+  select(starts_with("Armed Forces size"), starts_with("Fertility Rate")) %>% 
+  pivot_longer(cols = everything(),
+               names_to = c("Variable", "Statistic"),
+               names_sep = "_"  
+               )
+```
+
+```{r}
+data %>% select(`Armed Forces size`, `Fertility Rate`) %>% summarise(across(where(is.numeric),list(
+  mean = ~mean(.x, na.rm = TRUE),median = ~median(.x, na.rm = TRUE),
+  sd = ~sd(.x, na.rm = TRUE),min = ~min(.x, na.rm = TRUE),
+  max = ~max(.x, na.rm = TRUE),Q1 = ~quantile(.x, 0.25, na.rm = TRUE),
+  Q3 = ~quantile(.x, 0.75, na.rm = TRUE)))) %>%
+  pivot_longer(
+    cols = everything(),names_to = c("Column", "Statistic"),
+    names_sep = "_",values_to = "Value"
+  ) %>% mutate(Value = round(Value, 3))
+```
+
+## 4. Menampilkan 5 mata uang yang paling banyak digunakan di dunia
+
+```{r}
+data %>%
+  count(`Currency-Code`) %>%
+  arrange(desc(n)) %>%
+  slice_head(n = 5)
+```
+
+## 5. Menampilkan 3 negara ASEAN yang memiliki `Infant mortality` tertinggi dan 3 negara terendah
+
+```{r}
+library(dplyr)
+
+# Daftar negara ASEAN
+asean_countries <- c("Brunei Darussalam", "Cambodia", "Indonesia", 
+                     "Laos", "Malaysia", 
+                     "Myanmar", "The Philippines", "Singapore", 
+                     "Thailand", "Vietnam")
+
+# Menampilkan 3 negara ASEAN dengan 'Infant mortality' tertinggi dan terendah
+tabel_baru <- data %>%
+  mutate(is_asean = if_else(Country %in% asean_countries, "ASEAN", "Non-ASEAN")) %>%
+  filter(is_asean == "ASEAN") %>%
+  arrange(desc(`Infant mortality`)) %>%
+  slice_head(n = 3) %>%
+  bind_rows(
+    data %>%
+      mutate(is_asean = if_else(Country %in% asean_countries, "ASEAN", "Non-ASEAN")) %>%
+      filter(is_asean == "ASEAN") %>%
+      arrange(`Infant mortality`) %>%
+      slice_head(n = 3)
+  )
+
+tabel_baru <- tabel_baru %>%
+  select(Country, `Infant mortality`)
+
+# Tampilkan hasil
+print(tabel_baru)
+```
+
+# Tugas Kelompok
+
+Disusun oleh:\
+Kelompok 12
+
+-   Mufrih Nur Huda Tri Putra - M0501241056
+
+-   Jasmin Nur Hanifa - M0501241060
+
+-   Nabiilah Rahmatiah Tangke -M0501241070
+
+## 1. Hitung berapa banyak `NA` pada dataset
+
+```{r}
+data %>% 
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  sum()
+```
+
+## 2.Menghapus semua missing data dan menunjukkan missing data yang sudah terhapus
+
+### menghapus missing data
+
+```{r}
+dataClean <- drop_na(data)
+dataClean
+```
+
+### melihat data yang sudah dibersihkan
+
+```{r}
+dataClean %>%  
+summarise(across(everything(), ~sum(is.na(.)))) %>%
+  sum()
+```
+
+## 3. Mengubah tipe data
+
+### melihat tipe data
+
+```{r}
+tipeData <- glimpse(dataClean)
+dfTipe <- data.frame(column = names(tipeData), tipe_data = sapply(dataClean, class))
+dfTipe
+```
+
+### mengubah tipe data `chr` menjadi `dbl`
+
+```{r}
+columns_with_special_chars <- dataClean %>%
+  summarise(across(everything(), ~ any(str_detect(., "\\$|%")))) %>%
+  pivot_longer(cols = everything(), names_to = "Column", values_to = "Contains_Special_Char") %>%
+  filter(Contains_Special_Char) %>%
+  pull(Column)
+
+print(columns_with_special_chars)
+
+fixed_data_type = dataClean %>% mutate(across(where(is.character), ~ str_remove_all(., "\\$|%"))) %>%
+  mutate(across(columns_with_special_chars,~parse_number(.)))
+
+glimpse(fixed_data_type)
+```
+
+## 4. Konversi nilai mata uang dalam bentuk dollar ke nilai mata uang rupiah dengan tipe `dbl`
+
+```{r}
+usd_to_idr = fixed_data_type %>% 
+  mutate(across(c(`Gasoline Price`, GDP, `Minimum wage`),~ . *15699))
+
+usd_to_idr %>% 
+  select(Country, `Gasoline Price`, GDP, `Minimum wage`)
+```
+
+## 5. Membuat kolom `country_status` yang berisi kategori `"rich"`, `"developing"`, `"poor"`
+
+-   \`Unemployment rate\` \< \`1%\` \~ \`rich\`
+
+-   \`0.999999%\` \< \`Unemployment rate\` \< \`5%\` \~ \`developing\`
+
+-   \`Unemployment rate\`\> \`4.999999%\` \~ \`poor\`
+
+```{r}
+add_country_status = usd_to_idr %>% 
+  mutate(country_status = case_when(`Unemployment rate`< 1 ~ "Rich",
+                                    `Unemployment rate`>= 1 &
+                                    `Unemployment rate`< 5 ~ "Developing",
+                                    `Unemployment rate`>= 5 ~ "Poor"))
+add_country_status
+```
+
+## 6. Menghitung rata-rata dan nilai max `GDP` dan `CPI` berdasarkan `country status` dan hitung berapa banyak negara yang termasuk kategori rich, developing, poor.
+
+```{r}
+add_country_status %>%
+  group_by(country_status) %>% 
+  summarize(max_GDP = max(GDP, na.rm = TRUE),
+            `mean GDP` = mean(GDP, na.rm = TRUE),
+            max_CPI = max(CPI, na.rm = TRUE),
+            `mean CPI` = mean(CPI, na.rm = TRUE),
+            country_n = n())
+```
+
+## 7. Menampilkan hasil `no. 6` dalam format long
+
+```{r}
+result_long <- add_country_status %>%
+  group_by(country_status) %>% 
+  summarize(max_GDP = max(GDP, na.rm = TRUE),
+            `mean GDP` = mean(GDP, na.rm = TRUE),
+            max_CPI = max(CPI, na.rm = TRUE),
+            `mean CPI` = mean(CPI, na.rm = TRUE),
+            country_n = n()) %>%
+
+  pivot_longer(cols = c(max_GDP, `mean GDP`, max_CPI, `mean CPI`, country_n),
+               names_to = "Variable",
+               values_to = "value")
+
+result_long
+```
